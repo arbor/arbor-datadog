@@ -185,23 +185,33 @@ renderEvent e = do
   alert
   formatTags
   where
+    escapedTitle :: B.ByteString
     escapedTitle = encodeUtf8 $ escapeEventContents $ Z.eventTitle e
+    escapedText :: B.ByteString
     escapedText = encodeUtf8 $ escapeEventContents $ Z.eventText e
+    makeField :: Foldable t => Char -> t (Utf8Builder b) -> Utf8Builder ()
     makeField c v = F.forM_ v $ \jv ->
       appendChar7 '|' >> appendChar7 c >> appendChar7 ':' >> jv
+    cleanTextValue :: Functor f => (Z.Event -> f Text) -> f (Utf8Builder ())
     cleanTextValue f = (appendText . cleanMetricText) <$> f e
     -- TODO figure out the actual format that dateHappened values are supposed to have.
+    happened :: Utf8Builder ()
     happened = F.forM_ (Z.eventDateHappened e) $ \h -> do
       appendBS7 "|d:"
       appendDecimalSignedInt $ epochTime h
+    formatHostname :: Utf8Builder ()
     formatHostname = makeField 'h' $ cleanTextValue Z.eventHostname
+    aggregation :: Utf8Builder ()
     aggregation = makeField 'k' $ cleanTextValue Z.eventAggregationKey
+    formatPriority :: Utf8Builder ()
     formatPriority = F.forM_ (Z.eventPriority e) $ \p -> do
       appendBS7 "|p:"
       appendBS7 $ case p of
         Z.Low    -> "low"
         Z.Normal -> "normal"
+    sourceType :: Utf8Builder ()
     sourceType = makeField 's' $ cleanTextValue Z.eventSourceTypeName
+    alert :: Utf8Builder ()
     alert = F.forM_ (Z.eventAlertType e) $ \a -> do
               appendBS7 "|t:"
               appendBS7 $ case a of
@@ -209,6 +219,7 @@ renderEvent e = do
                 Z.Warning -> "warning"
                 Z.Info    -> "info"
                 Z.Success -> "success"
+    formatTags :: Utf8Builder ()
     formatTags = case Z.eventTags e of
       [] -> return ()
       ts -> do
