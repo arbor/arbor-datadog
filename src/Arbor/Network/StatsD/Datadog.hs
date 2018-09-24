@@ -1,11 +1,14 @@
 {-| DogStatsD accepts custom application metrics points over UDP, and then periodically aggregates and forwards the metrics to Datadog, where they can be graphed on dashboards. The data is sent by using a client library such as this one that communicates with a DogStatsD server. -}
 
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE DuplicateRecordFields  #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TypeApplications       #-}
 
 module Arbor.Network.StatsD.Datadog
   ( -- * Client interface
@@ -44,43 +47,29 @@ module Arbor.Network.StatsD.Datadog
   , Z.SampleRate
   , Z.Priority(..)
   , Z.AlertType(..)
-  , HasName(..)
-  , HasSampleRate(..)
-  , HasType'(..)
-  , HasTags(..)
-  , HasTitle(..)
-  , HasText(..)
-  , HasDateHappened(..)
-  , HasHostname(..)
-  , HasAggregationKey(..)
-  , HasPriority(..)
-  , HasSourceTypeName(..)
-  , HasAlertType(..)
-  , HasHost(..)
-  , HasPort(..)
-  , HasStatus(..)
-  , HasMessage(..)
     -- * Dummy client
   , Z.StatsClient(Dummy)
 ) where
 
-import Control.Applicative     ((<$>))
+import Control.Applicative         ((<$>))
 import Control.Lens
-import Control.Monad           (when)
+import Control.Monad               (when)
 import Control.Monad.IO.Class
 import Control.Reaper
 import Data.BufferBuilder.Utf8
-import Data.List               (intersperse)
-import Data.Maybe              (isNothing)
-import Data.Semigroup          ((<>))
-import Data.Text               (Text)
-import Data.Text.Encoding      (encodeUtf8)
+import Data.Generics.Product.Any
+import Data.Generics.Product.Typed
+import Data.List                   (intersperse)
+import Data.Maybe                  (isNothing)
+import Data.Semigroup              ((<>))
+import Data.Text                   (Text)
+import Data.Text.Encoding          (encodeUtf8)
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
-import Network.Socket          hiding (recv, recvFrom, send, sendTo)
+import Network.Socket              hiding (recv, recvFrom, send, sendTo)
 import System.Environment
-import System.IO               (BufferMode (LineBuffering), IOMode (WriteMode), hClose, hSetBuffering)
-import System.Random           (randomIO)
+import System.IO                   (BufferMode (LineBuffering), IOMode (WriteMode), hClose, hSetBuffering)
+import System.Random               (randomIO)
 
 import qualified Arbor.Network.StatsD.Type as Z
 import qualified Data.ByteString           as B
@@ -127,18 +116,16 @@ instance ToMetricValue Double where
 metric :: (ToMetricValue a) => Z.MetricName -> Z.MetricType -> a -> Z.Metric
 metric n t v = Z.Metric n sampleAlways t (encodeValue v) []
 
-makeFields ''Z.Metric
-
 -- | Special setter to update the value of a 'Metric'.
 --
 -- > metric ("foo"" :: Text) Counter (1 :: Int) & value .~ (5 :: Double)
 value :: ToMetricValue a => Setter Z.Metric Z.Metric (Utf8Builder ()) a
-value = sets $ \f m -> m { Z.mValue = encodeValue $ f $ Z.mValue m }
+value = sets $ \f m -> m { Z.value = encodeValue $ f $ Z.value m }
 {-# INLINE value #-}
 
 renderMetric :: Z.Metric -> Utf8Builder ()
 renderMetric (Z.Metric n (Z.SampleRate sr) t v ts) = do
-  appendText $ cleanMetricText $ Z.fromMetricName n
+  appendText $ cleanMetricText $ n ^. the @"text"
   appendChar7 ':'
   v
   appendChar7 '|'
@@ -154,14 +141,12 @@ renderMetric (Z.Metric n (Z.SampleRate sr) t v ts) = do
       Z.Set       -> appendChar7 's'
     formatTags = case ts of
       [] -> return ()
-      xs -> appendBS7 "|#" >> F.sequence_ (intersperse (appendChar7 ',') $ map Z.fromTag xs)
+      xs -> appendBS7 "|#" >> F.sequence_ (intersperse (appendChar7 ',') $ map (^. the @"builder") xs)
     formatRate = if sr == 1 then return () else appendBS7 "|@" >> appendDecimalDouble sr
 
 -- | Smart 'Event' constructor. Use the lens functions to set the optional fields.
 event :: Text -> Text -> Z.Event
 event t d = Z.Event t d Nothing Nothing Nothing Nothing Nothing Nothing []
-
-makeFields ''Z.Event
 
 renderEvent :: Z.Event -> Utf8Builder ()
 renderEvent e = do
@@ -186,9 +171,9 @@ renderEvent e = do
   formatTags
   where
     escapedTitle :: B.ByteString
-    escapedTitle = encodeUtf8 $ escapeEventContents $ Z.eventTitle e
+    escapedTitle = encodeUtf8 $ escapeEventContents $ e ^. the @"title"
     escapedText :: B.ByteString
-    escapedText = encodeUtf8 $ escapeEventContents $ Z.eventText e
+    escapedText = encodeUtf8 $ escapeEventContents $ e ^. the @"text"
     makeField :: Foldable t => Char -> t (Utf8Builder b) -> Utf8Builder ()
     makeField c v = F.forM_ v $ \jv ->
       appendChar7 '|' >> appendChar7 c >> appendChar7 ':' >> jv
@@ -196,23 +181,23 @@ renderEvent e = do
     cleanTextValue f = (appendText . cleanMetricText) <$> f e
     -- TODO figure out the actual format that dateHappened values are supposed to have.
     happened :: Utf8Builder ()
-    happened = F.forM_ (Z.eventDateHappened e) $ \h -> do
+    happened = F.forM_ (e ^. the @"dateHappened") $ \h -> do
       appendBS7 "|d:"
       appendDecimalSignedInt $ epochTime h
     formatHostname :: Utf8Builder ()
-    formatHostname = makeField 'h' $ cleanTextValue Z.eventHostname
+    formatHostname = makeField 'h' $ cleanTextValue (^. the @"hostname")
     aggregation :: Utf8Builder ()
-    aggregation = makeField 'k' $ cleanTextValue Z.eventAggregationKey
+    aggregation = makeField 'k' $ cleanTextValue (^. the @"aggregationKey")
     formatPriority :: Utf8Builder ()
-    formatPriority = F.forM_ (Z.eventPriority e) $ \p -> do
+    formatPriority = F.forM_ (e ^. the @"priority") $ \p -> do
       appendBS7 "|p:"
       appendBS7 $ case p of
         Z.Low    -> "low"
         Z.Normal -> "normal"
     sourceType :: Utf8Builder ()
-    sourceType = makeField 's' $ cleanTextValue Z.eventSourceTypeName
+    sourceType = makeField 's' $ cleanTextValue (^. the @"sourceTypeName")
     alert :: Utf8Builder ()
-    alert = F.forM_ (Z.eventAlertType e) $ \a -> do
+    alert = F.forM_ (e ^. the @"alertType") $ \a -> do
               appendBS7 "|t:"
               appendBS7 $ case a of
                 Z.Error   -> "error"
@@ -220,13 +205,11 @@ renderEvent e = do
                 Z.Info    -> "info"
                 Z.Success -> "success"
     formatTags :: Utf8Builder ()
-    formatTags = case Z.eventTags e of
+    formatTags = case e ^. the @"tags" of
       [] -> return ()
       ts -> do
         appendBS7 "|#"
-        sequence_ $ intersperse (appendChar7 ',') $ map Z.fromTag ts
-
-makeFields ''Z.ServiceCheck
+        sequence_ $ intersperse (appendChar7 ',') $ map (^. the @"builder") ts
 
 serviceCheck :: Text -- ^ name
              -> Z.ServiceCheckStatus
@@ -246,23 +229,21 @@ instance ToStatsD Z.Event where
 instance ToStatsD Z.ServiceCheck where
   toStatsD check = do
     appendBS7 "_sc|"
-    appendText $ cleanMetricText $ check ^. name
+    appendText $ cleanMetricText $ check ^. the @"name"
     appendChar7 '|'
-    appendDecimalSignedInt $ fromEnum $ check ^. status
-    F.forM_ (check ^. message) $ \msg ->
+    appendDecimalSignedInt $ fromEnum $ check ^. the @"status"
+    F.forM_ (check ^. the @"message") $ \msg ->
       appendBS7 "|m:" >> appendText (cleanMetricText msg)
-    F.forM_ (check ^. dateHappened) $ \ts -> do
+    F.forM_ (check ^. the @"dateHappened") $ \ts -> do
       appendBS7 "|d:"
       appendDecimalSignedInt $ epochTime ts
-    F.forM_ (check ^. hostname) $ \hn ->
+    F.forM_ (check ^. the @"hostname") $ \hn ->
       appendBS7 "|h:" >> appendText (cleanMetricText hn)
-    case check ^. tags of
+    case check ^. the @"tags" of
       [] -> return ()
       ts -> do
         appendBS7 "|#"
-        sequence_ $ intersperse (appendChar7 ',') $ map Z.fromTag ts
-
-makeFields ''Z.DogStatsSettings
+        sequence_ $ intersperse (appendChar7 ',') $ map (^. the @"builder") ts
 
 defaultSettings :: Z.DogStatsSettings
 defaultSettings = Z.DogStatsSettings "127.0.0.1" 8125
@@ -274,8 +255,8 @@ createStatsClient :: MonadIO m
                   -> m Z.StatsClient
 createStatsClient s n ts = liftIO $ do
   addrInfos <- getAddrInfo (Just $ defaultHints { addrFlags = [AI_PASSIVE] })
-                                    (Just $ s ^. host)
-                                    (Just $ show $ s ^. port)
+                                    (Just $ s ^. the @"host")
+                                    (Just $ show $ s ^. the @"port")
   case addrInfos of
     [] -> error "No address for hostname" -- TODO throw
     (serverAddr:_) -> do
@@ -296,7 +277,7 @@ createStatsClient s n ts = liftIO $ do
       return $ Z.StatsClient h r n ts
 
 closeStatsClient :: MonadIO m => Z.StatsClient -> m ()
-closeStatsClient c = liftIO $ finalizeStatsClient c >> hClose (Z.statsClientHandle c)
+closeStatsClient c = liftIO $ finalizeStatsClient c >> hClose (Z.handle c)
 
 -- | Send a 'Metric', 'Event', or 'StatusCheck' to the DogStatsD server.
 --
@@ -312,16 +293,16 @@ closeStatsClient c = liftIO $ finalizeStatsClient c >> hClose (Z.statsClientHand
 -- send (StatsClient _ r) v = liftBase $ reaperAdd r (toStatsD v >> appendChar7 '\n')
 -- {-# INLINEABLE send #-}
 
-tagged :: (HasTags v [Z.Tag]) => (a -> v) -> (a -> [Z.Tag]) -> a -> v
-tagged getVal getTag a = getVal a & tags %~ (getTag a ++)
+tagged :: (HasType [Z.Tag] v) => (a -> v) -> (a -> [Z.Tag]) -> a -> v
+tagged getVal getTag a = getVal a & typed @[Z.Tag] %~ (getTag a ++)
 {-# INLINE tagged #-}
 
-sampled' :: (HasSampleRate v Z.SampleRate) => (a -> v) -> (a -> Z.SampleRate) -> a -> v
-sampled' getVal getRate a = getVal a & sampleRate .~ getRate a
+sampled' :: (HasType Z.SampleRate v) => (a -> v) -> (a -> Z.SampleRate) -> a -> v
+sampled' getVal getRate a = getVal a & typed @Z.SampleRate .~ getRate a
 {-# INLINE sampled' #-}
 
-sampled :: (HasSampleRate v Z.SampleRate) => (a -> v) -> Z.SampleRate -> a -> v
-sampled f r a = f a & sampleRate .~ r
+sampled :: (HasType Z.SampleRate v) => (a -> v) -> Z.SampleRate -> a -> v
+sampled f r a = f a & typed @Z.SampleRate .~ r
 {-# INLINE sampled #-}
 
 incCounter :: Z.MetricName -> Z.Metric
@@ -347,8 +328,8 @@ histogram n f a = metric n Z.Histogram (f a)
 send ::
   ( MonadIO m
   , ToStatsD v
-  , HasName v Z.MetricName
-  , HasTags v [Z.Tag])
+  , HasType Z.MetricName v
+  , HasType [Z.Tag] v)
   => Z.StatsClient
   -> v
   -> m ()
@@ -365,16 +346,16 @@ sendEvt (Z.StatsClient _ r (Z.MetricName n) ts) e = liftIO $
 sendSampled ::
   ( MonadIO m
   , ToStatsD v
-  , HasSampleRate v Z.SampleRate
-  , HasName v Z.MetricName
-  , HasTags v [Z.Tag])
+  , HasType Z.SampleRate v
+  , HasType Z.MetricName v
+  , HasType [Z.Tag] v)
   => Z.StatsClient
   -> v
   -> m ()
 sendSampled Z.Dummy _ = return ()
 sendSampled c v     = liftIO $ do
   z <- Z.SampleRate <$> randomIO
-  when (z <= v ^. sampleRate) $ send c v
+  when (z <= v ^. typed @Z.SampleRate) $ send c v
 {-# INLINEABLE sendSampled #-}
 
 envTag :: Z.EnvVarName -> Z.TagKey -> IO (Maybe Z.Tag)
@@ -386,14 +367,14 @@ finalizeStatsClient :: Z.StatsClient -> IO ()
 finalizeStatsClient (Z.StatsClient h r _ _) = reaperStop r >>= F.mapM_ (B.hPut h . runUtf8Builder)
 finalizeStatsClient Z.Dummy                 = return ()
 
-addAspect :: (HasName v Z.MetricName) => Z.MetricName -> v -> v
+addAspect :: (HasType Z.MetricName v) => Z.MetricName -> v -> v
 addAspect (Z.MetricName a) v =
   if T.null a
     then v
-    else v & name %~ (\(Z.MetricName n) -> Z.MetricName (a <> "." <> n))
+    else v & typed @Z.MetricName %~ (\(Z.MetricName n) -> Z.MetricName (a <> "." <> n))
 {-# INLINE addAspect #-}
 
-addTags :: (HasTags v [Z.Tag]) => [Z.Tag] -> v -> v
+addTags :: (HasType [Z.Tag] v) => [Z.Tag] -> v -> v
 addTags [] v = v
-addTags ts v = v & tags %~ (ts ++)
+addTags ts v = v & typed @[Z.Tag] %~ (ts ++)
 {-# INLINE addTags #-}
