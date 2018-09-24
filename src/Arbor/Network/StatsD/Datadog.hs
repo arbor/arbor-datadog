@@ -55,26 +55,28 @@ module Arbor.Network.StatsD.Datadog (
   -- * Dummy client
   StatsClient(Dummy)
 ) where
-import           Control.Applicative     ((<$>))
-import           Control.Lens
-import           Control.Monad           (when)
-import           Control.Monad.IO.Class
-import           Control.Reaper
-import           Data.BufferBuilder.Utf8
-import qualified Data.ByteString         as B
-import qualified Data.Foldable           as F
-import           Data.List               (intersperse)
-import           Data.Maybe              (isNothing)
-import           Data.Semigroup          ((<>))
-import           Data.Text               (Text)
-import qualified Data.Text               as T
-import           Data.Text.Encoding      (encodeUtf8)
-import           Data.Time.Clock
-import           Data.Time.Clock.POSIX
-import           Network.Socket          hiding (recv, recvFrom, send, sendTo)
-import           System.Environment
-import           System.IO               (BufferMode (LineBuffering), Handle, IOMode (WriteMode), hClose, hSetBuffering)
-import           System.Random           (randomIO)
+
+import Control.Applicative     ((<$>))
+import Control.Lens
+import Control.Monad           (when)
+import Control.Monad.IO.Class
+import Control.Reaper
+import Data.BufferBuilder.Utf8
+import Data.List               (intersperse)
+import Data.Maybe              (isNothing)
+import Data.Semigroup          ((<>))
+import Data.Text               (Text)
+import Data.Text.Encoding      (encodeUtf8)
+import Data.Time.Clock
+import Data.Time.Clock.POSIX
+import Network.Socket          hiding (recv, recvFrom, send, sendTo)
+import System.Environment
+import System.IO               (BufferMode (LineBuffering), Handle, IOMode (WriteMode), hClose, hSetBuffering)
+import System.Random           (randomIO)
+
+import qualified Data.ByteString as B
+import qualified Data.Foldable   as F
+import qualified Data.Text       as T
 
 epochTime :: UTCTime -> Int
 epochTime = round . utcTimeToPOSIXSeconds
