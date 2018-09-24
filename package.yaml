@@ -1,0 +1,55 @@
+name: datadog
+version: '0.2.0.0'
+synopsis: Datadog client for Haskell.
+description: Datadog client for Haskell. Supports both the HTTP API and StatsD.
+category: Network
+author: Ian Duncan
+maintainer: ian@iankduncan.com
+license: MIT
+homepage: https://github.com/iand675/datadog
+git: git://github.com/iand675/datadog.git
+dependencies:
+- lens
+- time
+- network
+library:
+  source-dirs: src
+  other-extensions:
+  - OverloadedStrings
+  - GeneralizedNewtypeDeriving
+  - TemplateHaskell
+  - FunctionalDependencies
+  - MultiParamTypeClasses
+  - FlexibleInstances
+  ghc-options: -Wall
+  exposed-modules:
+  - Network.StatsD
+  - Network.StatsD.Datadog
+  - Network.StatsD.Monad
+  dependencies:
+  - base >=4.7 && <5
+  - aeson
+  - bytestring
+  - text
+  - buffer-builder
+  - auto-update
+  - mtl
+  - unordered-containers
+  - vector
+  - dlist
+  - random
+tests:
+  datadog-api-test:
+    main: Spec.hs
+    source-dirs: test
+    ghc-options:
+    - -Wall
+    - -O3
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - base
+    - Cabal
+    - datadog
+    - hspec
