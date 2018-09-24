@@ -1,13 +1,13 @@
 name: arbor-datadog
-version: '0.2.0.0'
+version: '0.0.0.1'
 synopsis: Datadog client for Haskell.
 description: Datadog client for Haskell. Supports both the HTTP API and StatsD.
 category: Network
-author: Ian Duncan
-maintainer: ian@iankduncan.com
+author: Arbor Networks
+maintainer: mayhem@arbor.net
 license: MIT
-homepage: https://github.com/iand675/datadog
-git: git://github.com/iand675/datadog.git
+homepage: https://github.com/packetloop/arbor-datadog
+git: git://github.com/packetloop/arbor-datadog.git
 
 dependencies:
 - lens
