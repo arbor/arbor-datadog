@@ -146,14 +146,14 @@ jobs:
     environment:
       - GHC: "ghc8.4.3"
     docker:
-      - image: quay.io/haskell_works/ghc-8.4.3:18.04_2018-09-19
+      - image: quay.io/haskell_works/ghc-8.4.3:18.04_2018-09-24
     <<: *cabalbuild
 
   ghc-8.2.2:
     environment:
       - GHC: "ghc8.2.2"
     docker:
-      - image: quay.io/haskell_works/ghc-8.2.2:18.04_2018-09-19
+      - image: quay.io/haskell_works/ghc-8.2.2:18.04_2018-09-24
     <<: *cabalbuild
 
   lts-12:
@@ -163,7 +163,7 @@ jobs:
 
   checked-builds:
     docker:
-      - image: quay.io/haskell_works/ghc-8.4.3:18.04_2018-09-19
+      - image: quay.io/haskell_works/ghc-8.4.3:18.04_2018-09-24
 
     steps:
       - checkout
@@ -195,7 +195,7 @@ jobs:
 
   release:
     docker:
-      - image: quay.io/haskell_works/ghc-8.4.3:18.04_2018-09-19
+      - image: quay.io/haskell_works/ghc-8.4.3:18.04_2018-09-24
 
     steps:
       - checkout
