@@ -24,10 +24,6 @@ library:
   - MultiParamTypeClasses
   - FlexibleInstances
   ghc-options: -Wall
-  exposed-modules:
-  - Network.StatsD
-  - Network.StatsD.Datadog
-  - Network.StatsD.Monad
   dependencies:
   - base >=4.7 && <5
   - aeson

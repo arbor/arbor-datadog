@@ -6,7 +6,8 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TemplateHaskell        #-}
-module Network.StatsD.Datadog (
+
+module Arbor.Network.StatsD.Datadog (
   -- * Client interface
   DogStatsSettings(..),
   defaultSettings,
@@ -482,4 +483,3 @@ addTags :: (HasTags v [Tag]) => [Tag] -> v -> v
 addTags [] v = v
 addTags ts v = v & tags %~ (ts ++)
 {-# INLINE addTags #-}
-

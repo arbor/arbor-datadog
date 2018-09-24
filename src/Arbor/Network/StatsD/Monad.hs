@@ -1,10 +1,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Network.StatsD.Monad where
+module Arbor.Network.StatsD.Monad where
 
+import Arbor.Network.StatsD.Datadog
 import Control.Monad.Except
 import Control.Monad.Reader
-import Network.StatsD.Datadog
 
 class (Functor m, Applicative m, MonadIO m) => MonadStats m where
   getStatsClient :: m StatsClient
