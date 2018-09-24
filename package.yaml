@@ -10,9 +10,10 @@ homepage: https://github.com/packetloop/arbor-datadog
 git: git://github.com/packetloop/arbor-datadog.git
 
 dependencies:
+- generic-lens
 - lens
-- time
 - network
+- time
 
 library:
   source-dirs: src
@@ -27,15 +28,15 @@ library:
   dependencies:
   - base >=4.7 && <5
   - aeson
-  - bytestring
-  - text
-  - buffer-builder
   - auto-update
+  - buffer-builder
+  - bytestring
+  - dlist
   - mtl
+  - random
+  - text
   - unordered-containers
   - vector
-  - dlist
-  - random
 
 tests:
   datadog-api-test:
