@@ -13,7 +13,9 @@ dependencies:
 - generic-lens
 - lens
 - network
+- resourcet
 - time
+- transformers
 
 library:
   source-dirs: src
