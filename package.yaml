@@ -6,8 +6,8 @@ category: Network
 author: Arbor Networks
 maintainer: mayhem@arbor.net
 license: MIT
-homepage: https://github.com/packetloop/arbor-datadog
-git: git://github.com/packetloop/arbor-datadog.git
+homepage: https://github.com/arbor/arbor-datadog
+git: git://github.com/arbor/arbor-datadog.git
 
 dependencies:
 - generic-lens
