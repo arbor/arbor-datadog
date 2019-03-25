@@ -8,7 +8,7 @@ import Data.BufferBuilder.Utf8
 import Data.Text               (Text)
 import Data.Time.Clock         (UTCTime)
 import GHC.Generics
-import Network                 (HostName)
+import Network.Socket          (HostName)
 import System.IO               (Handle)
 
 -- | Tags are a Datadog specific extension to StatsD. They allow you to tag a metric with a
