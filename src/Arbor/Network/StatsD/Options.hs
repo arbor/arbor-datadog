@@ -8,6 +8,7 @@ module Arbor.Network.StatsD.Options
 where
 
 import Arbor.Network.StatsD.Type (SampleRate (..))
+import Data.Monoid               ((<>))
 import Data.Text                 (Text)
 import GHC.Generics              (Generic)
 import Network.Socket            (HostName)
